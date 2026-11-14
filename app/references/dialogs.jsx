@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Icon } from "../components/icons";
-import { parseLink, platforms, referenceTitle } from "../../lib/references";
+import { parseLink, platforms, referenceTitle, referenceSources } from "../../lib/references";
 
 export function Dialog({ close, viewer, children }) {
   const ref = useRef(null);
@@ -85,7 +85,7 @@ export function AddReference({ action, close, folders, activeFolder }) {
   return (
     <>
       <h2 id="dialog-title">Add reference</h2>
-      <p className="dialog-description">Paste a link from YouTube, Instagram, TikTok, or X.</p>
+      <p className="dialog-description">Paste a link from {referenceSources}.</p>
       <ActionForm action={action} close={close} label="Save reference" cancel>
         <label className="field">
           Link

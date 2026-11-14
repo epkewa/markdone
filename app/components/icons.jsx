@@ -11,6 +11,7 @@ const paths = {
   youtube: <><rect x="2.5" y="5" width="19" height="14" rx="4.5" fill="currentColor" stroke="none" /><path d="m10 9 5 3-5 3Z" fill="var(--logo-cutout, #e34843)" stroke="none" /></>,
   instagram: <><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" /></>,
   tiktok: <path d="M14.5 3v12.5a4.5 4.5 0 1 1-4.5-4.5v2.7a1.8 1.8 0 1 0 1.8 1.8V3Zm0 0c.4 2.6 2.1 4 4.7 4.4V10A7.8 7.8 0 0 1 14.5 8Z" fill="currentColor" stroke="none" />,
+  pinterest: <><circle cx="12" cy="12" r="9.2" /><path d="m8.7 20.1 2.5-10.3m-.7 3.8c1.3 3.2 5.7 1.3 5.7-2.4 0-2.2-1.6-3.7-4-3.7-2.6 0-4.1 1.7-4.1 3.6 0 .8.3 1.4.6 1.8" /></>,
   x: <path d="M17.6 3h3l-6.5 7.5L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7-8L2 3h6.4l4.4 5.9ZM16.5 19h1.7L7.5 4.9H5.6Z" fill="currentColor" stroke="none" />,
 };
 

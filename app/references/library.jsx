@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { Brand, Icon } from "../components/icons";
-import { formatName, platforms, referenceTitle, thumbnail } from "../../lib/references";
+import { formatName, platforms, referenceTitle, referenceSources, thumbnail } from "../../lib/references";
 import { signOut } from "../sign-in/actions";
 import { AddReference, DeleteItem, Dialog, EditFolders, FolderForm } from "./dialogs";
 import { Viewer } from "./viewer";
@@ -20,7 +20,7 @@ function ReferenceCard({ reference, folders, open }) {
     <article className="reference-card">
       <button className={`reference-cover ${reference.platform}`} onClick={() => open("view", reference)} aria-label={`Open ${title}`}>
         {image ? <img src={image} alt="" loading="lazy" onError={() => setImageFailed(true)} /> : <Icon name={reference.platform} size={70} />}
-        <span className="cover-action"><Icon name={["instagram", "x"].includes(reference.platform) ? "external" : "play"} size={19} /></span>
+        <span className="cover-action"><Icon name={["instagram", "x", "pinterest"].includes(reference.platform) ? "external" : "play"} size={19} /></span>
       </button>
       <div className="card-body">
         <div className="card-topline">
@@ -54,7 +54,7 @@ function Exit({ demo }) {
     : <form action={signOut}><button type="submit" className="icon-button" aria-label="Sign out" title="Sign out"><Icon name="logout" size={18} /></button></form>;
 }
 
-export function Library({ email, folders, references, demo, actions = accountActions }) {
+export function Library({ email, folders, references, demo, analysisEnabled = false, actions = accountActions }) {
   const [folderId, setFolderId] = useState("");
   const [dialog, setDialog] = useState(null);
   const close = useCallback(() => setDialog(null), []);
@@ -105,6 +105,7 @@ export function Library({ email, folders, references, demo, actions = accountAct
         {demo && (
           <p className="demo-banner" role="status"><strong>Demo library</strong>
             <span>{demo.storageAvailable ? "Changes are saved in this browser." : "Browser storage is unavailable. Changes last until you leave or refresh."}</span>
+            {demo.catalogUnavailable && <span>Sample references are temporarily unavailable.</span>}
           </p>
         )}
         <div className="mobile-folders">
@@ -143,7 +144,7 @@ export function Library({ email, folders, references, demo, actions = accountAct
           <section className="empty-state">
             <div className="empty-icon"><Icon name={active ? "folder" : "link"} size={28} /></div>
             <h2>{active ? "This folder is empty" : "Save your first reference"}</h2>
-            <p>{active ? "Add a link here or move an existing reference into this folder." : "Paste a YouTube, Instagram, TikTok, or X link to start your collection."}</p>
+            <p>{active ? "Add a link here or move an existing reference into this folder." : `Paste a link from ${referenceSources} to start your collection.`}</p>
             <button className="button secondary" onClick={() => open("add")}><Icon name="add" size={17} /> Add reference</button>
           </section>
         )}
@@ -151,7 +152,7 @@ export function Library({ email, folders, references, demo, actions = accountAct
 
       {dialog && (
         <Dialog close={close} viewer={dialog.type === "view"}>
-          {dialog.type === "view" && <Viewer demo={Boolean(demo)} retry={actions.retryReference} reference={reference} close={close} />}
+          {dialog.type === "view" && <Viewer demo={Boolean(demo)} retry={actions.retryReference} analyze={analysisEnabled ? actions.analyzeReference : undefined} reference={reference} close={close} />}
           {dialog.type === "add" && <AddReference action={actions.saveReference} folders={folders} activeFolder={active?.id} close={close} />}
           {dialog.type === "edit" && <EditFolders action={actions.editMemberships} folders={folders} reference={reference} close={close} />}
           {dialog.type === "newFolder" && <FolderForm action={actions.saveFolder} close={close} />}

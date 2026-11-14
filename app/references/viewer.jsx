@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { parseLink, platforms, referenceTitle } from "../../lib/references";
 import { Icon } from "../components/icons";
 import { ActionForm } from "./dialogs";
@@ -15,7 +15,60 @@ export function OriginalLink({ reference, className }) {
   );
 }
 
-export function Viewer({ reference, close, demo, retry }) {
+function AnalyzeButton({ action, referenceId, label }) {
+  const [result, submit, pending] = useActionState(action, null);
+  return (
+    <form action={submit} className="video-analysis-action">
+      <input type="hidden" name="id" value={referenceId} />
+      <button type="submit" className="button secondary" disabled={pending}>
+        {pending ? "Analyzing video…" : label}
+      </button>
+      {result?.error && <p role="alert" className="notice">{result.error}</p>}
+    </form>
+  );
+}
+
+function VideoAnalysis({ reference, analyze }) {
+  const { ai_status: status, ai_claim_until: claimUntil, ai_summary: summary, ai_steps: steps, ai_source: source } = reference;
+  const [expiredClaim, setExpiredClaim] = useState(null);
+  useEffect(() => {
+    if (status !== "processing" || !claimUntil) return;
+    const timer = setTimeout(() => setExpiredClaim(claimUntil), Math.max(0, Date.parse(claimUntil) - Date.now() + 250));
+    return () => clearTimeout(timer);
+  }, [status, claimUntil]);
+
+  if (status === "ready" && summary) {
+    return (
+      <section className="video-analysis" aria-label="AI video analysis">
+        <p className="analysis-source">{source === "video" ? "AI analysis · Based on the video" : "AI analysis · Based on public post details"}</p>
+        <h3>About this video</h3>
+        <p>{summary}</p>
+        {steps?.length > 0 && (
+          <>
+            <h3>How to apply it</h3>
+            <ol>{steps.map((step) => <li key={step}>{step}</li>)}</ol>
+          </>
+        )}
+      </section>
+    );
+  }
+
+  if (!reference.post_id || reference.kind === "photo" || !status || status === "not_video") return null;
+  if (status === "unavailable") return <p className="notice video-analysis">There isn’t enough public information to describe this video.</p>;
+  if (!analyze) return null;
+  if (status === "processing" && claimUntil && expiredClaim !== claimUntil) {
+    return <p className="notice video-analysis" role="status">Video analysis is in progress.</p>;
+  }
+  const retryable = status === "failed" || status === "processing";
+  return (
+    <div className="video-analysis">
+      {retryable && <p role="status">Video analysis couldn’t finish. You can try again.</p>}
+      <AnalyzeButton action={analyze} referenceId={reference.id} label={retryable ? "Retry analysis" : "Analyze video"} />
+    </div>
+  );
+}
+
+export function Viewer({ reference, close, demo, retry, analyze }) {
   const [failed, setFailed] = useState(false);
   const link = parseLink(reference.url);
   const title = referenceTitle(reference);
@@ -26,14 +79,14 @@ export function Viewer({ reference, close, demo, retry }) {
     source = `https://www.tiktok.com/player/v1/${link.id}?description=1`;
   } else if (link?.id && link.platform === "x") {
     source = `https://platform.twitter.com/embed/Tweet.html?id=${link.id}&dnt=true`;
-  } else if (link?.id && link.platform === "instagram") {
+  } else if (link?.id && ["instagram", "pinterest"].includes(link.platform)) {
     source = demo
       ? `/demo/embed?url=${encodeURIComponent(link.url)}`
       : `/references/embed?id=${encodeURIComponent(reference.id)}`;
   }
 
-  const isInstagram = link?.platform === "instagram";
-  const shape = isInstagram || link?.platform === "x" ? "social" : link?.platform === "tiktok" || link?.kind === "shorts" ? "portrait" : "landscape";
+  const usesWidget = ["instagram", "pinterest"].includes(link?.platform);
+  const shape = usesWidget || link?.platform === "x" ? "social" : link?.platform === "tiktok" || link?.kind === "shorts" ? "portrait" : "landscape";
 
   return (
     <>
@@ -49,14 +102,15 @@ export function Viewer({ reference, close, demo, retry }) {
           src={source}
           title={title}
           referrerPolicy="strict-origin-when-cross-origin"
-          sandbox={isInstagram ? "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-presentation" : undefined}
+          sandbox={usesWidget ? "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-presentation" : undefined}
           allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
           allowFullScreen
           onError={() => setFailed(true)}
         />
       ) : <p className="notice">This preview is unavailable.</p>}
+      {!demo && <VideoAnalysis reference={reference} analyze={analyze} />}
       <div className="viewer-footer">
-        {source && !failed && <span>Playback depends on the original post’s availability.</span>}
+        {source && !failed && <span>Preview depends on the original post’s availability.</span>}
         <OriginalLink reference={reference} className="button secondary" />
       </div>
       {retry && link && !link.id && !reference.post_id && (

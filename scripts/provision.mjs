@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
 import { parseLink } from "../lib/references.js";
-import { demoFolders, demoReferences } from "./demo-data.mjs";
+import { demoFolders } from "../lib/demo-folders.js";
 
 const {
   NEXT_PUBLIC_SUPABASE_URL: url,
@@ -49,29 +49,33 @@ async function seedDemo(admin, { client, user }) {
   if (error) throw error;
   const ids = new Map(existing.map(({ id, name }) => [name.trim().toLowerCase(), id]));
 
-  const folderIds = [];
-  for (const name of demoFolders) {
+  const folderIds = new Map();
+  for (const { key, name } of demoFolders) {
     let id = ids.get(name.toLowerCase());
     if (!id) {
       const { data, error } = await client.from("folders").insert({ name }).select("id").single();
       if (error) throw error;
       id = data.id;
     }
-    folderIds.push(id);
+    folderIds.set(key, id);
   }
 
-  for (const example of demoReferences) {
+  const { data: examples, error: catalogError } = await client.from("demo_references")
+    .select("url,title,folders").order("sort_order").order("id");
+  if (catalogError) throw catalogError;
+  for (const example of examples) {
     const link = parseLink(example.url);
-    if (!link?.id) throw new Error("A demo post URL is invalid.");
+    if (!link) throw new Error("A demo post URL is invalid.");
     const { data: id, error } = await client.rpc("save_reference", {
       p_platform: link.platform,
       p_post_id: link.id,
       p_kind: link.kind,
       p_url: link.url,
-      p_folder_ids: example.folders.map((index) => folderIds[index]),
+      p_folder_ids: example.folders.map((key) => folderIds.get(key)),
     });
     if (error) throw error;
-    const { error: updateError } = await client.from("saved_references").update({ title: example.title }).eq("id", id);
+    const { error: updateError } = await client.from("saved_references").update({ title: example.title })
+      .eq("id", id).neq("ai_status", "ready");
     if (updateError) throw updateError;
   }
 }

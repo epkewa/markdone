@@ -1,9 +1,12 @@
 {
   "dependencies": {
+    "@ai-sdk/google": "^4.0.121",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/manrope": "^5.3.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
+    "ai": "^7.0.173",
+    "htmlparser2": "^12.0.0",
     "next": "^16.4.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
@@ -18,5 +21,8 @@
     "test": "node --test",
     "provision": "node --env-file-if-exists=.env.local scripts/provision.mjs"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16"
+  }
 }

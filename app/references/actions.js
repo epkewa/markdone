@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase, configured } from "../../lib/supabase/server";
-import { resolveLink } from "../../lib/references";
+import { resolveLink, referenceSources } from "../../lib/references";
+import { analyzeSavedVideo } from "../../lib/video-analysis/service";
 
 const uuid = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i;
 
@@ -38,15 +39,24 @@ function rpcArgs(reference, folders) {
   };
 }
 
+async function analyzeAfterSave(client, owner, id) {
+  try {
+    await analyzeSavedVideo(client, owner, id);
+  } catch (error) {
+    console.error("Markdone could not update video analysis", error?.code || error?.name);
+  }
+}
+
 export async function saveReference(_state, data) {
-  return mutate(async (client) => {
+  return mutate(async (client, owner) => {
     const ids = folderIds(data);
     if (!ids) return { error: "Choose valid folders." };
     const reference = await resolveLink(data.get("url"));
-    if (!reference) return { error: "Paste a link to a YouTube, Instagram, TikTok, or X post." };
-    const { error } = await client.rpc("save_reference", rpcArgs(reference, ids));
+    if (!reference) return { error: `Paste a link to a post from ${referenceSources}.` };
+    const { data: id, error } = await client.rpc("save_reference", rpcArgs(reference, ids));
     if (error?.code === "23503") return { error: "A selected folder was deleted. Reopen this form and try again." };
     if (error) throw error;
+    if (reference.id && reference.kind !== "photo") await analyzeAfterSave(client, owner, id);
   });
 }
 
@@ -60,8 +70,18 @@ export async function retryReference(_state, data) {
     if (!saved) return { error: "This reference has already changed. Reopen it and try again." };
     const reference = await resolveLink(saved.url);
     if (!reference?.id) return { error: "The platform didn’t resolve this share link. You can still open the original." };
-    const { error: saveError } = await client.rpc("save_reference", { ...rpcArgs(reference, []), p_share_id: id });
+    const { data: resolvedId, error: saveError } = await client.rpc("save_reference", { ...rpcArgs(reference, []), p_share_id: id });
     if (saveError) throw saveError;
+    if (reference.kind !== "photo") await analyzeAfterSave(client, owner, resolvedId);
+  });
+}
+
+export async function analyzeReference(_state, data) {
+  return mutate(async (client, owner) => {
+    const id = String(data.get("id") ?? "");
+    if (!uuid.test(id)) return { error: "Reference couldn’t be found." };
+    const status = await analyzeSavedVideo(client, owner, id, { explicit: true });
+    if (status === "disabled") return { error: "Video analysis isn’t configured." };
   });
 }
 

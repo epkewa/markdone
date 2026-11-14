@@ -1,5 +1,5 @@
-import { instagramEmbed } from "../../../lib/instagram-embed";
+import { socialEmbed } from "../../../lib/social-embed";
 
 export function GET(request) {
-  return instagramEmbed(request.nextUrl.searchParams.get("url"));
+  return socialEmbed(request.nextUrl.searchParams.get("url"));
 }

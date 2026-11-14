@@ -147,6 +147,13 @@ a { color: inherit; }
 .player.landscape { aspect-ratio: 16 / 9; min-height: 200px; }
 .player.portrait { width: min(100%, 360px); height: clamp(320px, 65svh, 610px); }
 .player.social { width: min(100%, 548px); height: clamp(340px, 67svh, 680px); }
+.video-analysis { margin: 16px 0 0; padding: 15px 17px; border-radius: 10px; background: #eff2ed; overflow-wrap: anywhere; }
+.video-analysis h3 { font-size: 15px; margin: 0 0 5px; }
+.video-analysis p, .video-analysis ol { margin: 0; line-height: 1.55; }
+.video-analysis ol { padding-left: 20px; }
+.video-analysis li + li { margin-top: 4px; }
+.video-analysis p + h3, .video-analysis p + form { margin-top: 12px; }
+.video-analysis .analysis-source { color: var(--muted); font-size: 12px; }
 .viewer-footer { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding-top: 14px; font-size: 12px; color: var(--muted); }
 .viewer-footer a { margin-left: auto; }
 .viewer .stack { margin-top: 12px; }
@@ -179,3 +186,5 @@ a { color: inherit; }
 .demo-banner { display: flex; flex-wrap: wrap; gap: 5px 12px; align-items: baseline; margin-bottom: 22px; padding: 10px 13px; background: var(--mint); color: var(--accent); border-radius: 9px; }
 .demo-banner > span { font-size: 13px; }
 .demo-exit { font-size: 12px; min-height: 35px; }
+.reference-cover.pinterest { background: linear-gradient(140deg, #842143, #bc2040 58%, #e6646d); }
+.source-pill.pinterest { background: #fce7ec; color: #9b1a37; }

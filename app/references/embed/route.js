@@ -1,5 +1,5 @@
 import { configured, supabase } from "../../../lib/supabase/server";
-import { instagramEmbed } from "../../../lib/instagram-embed";
+import { socialEmbed } from "../../../lib/social-embed";
 
 export async function GET(request) {
   const headers = { "Cache-Control": "private, no-store" };
@@ -14,5 +14,5 @@ export async function GET(request) {
   }
   const { data } = await client.from("saved_references").select("url").eq("id", id)
     .eq("owner_id", auth.claims.sub).maybeSingle();
-  return instagramEmbed(data?.url, headers);
+  return socialEmbed(data?.url, headers);
 }

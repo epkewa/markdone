@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { configured, supabase } from "../../lib/supabase/server";
 import { Library } from "./library";
+import { analysisConfigured } from "../../lib/video-analysis/service";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 async function collectPages(query) {
   const rows = [];
@@ -26,9 +28,9 @@ export default async function ReferencesPage() {
   const [folders, references] = await Promise.all([
     collectPages(() => client.from("folders").select("id,name").eq("owner_id", owner).order("name").order("id")),
     collectPages(() => client.from("saved_references")
-      .select("id,platform,post_id,kind,url,title,created_at,folder_references(folder_id)")
+      .select("id,platform,post_id,kind,url,title,created_at,ai_status,ai_summary,ai_steps,ai_source,ai_claim_until,folder_references(folder_id)")
       .eq("owner_id", owner).order("created_at", { ascending: false }).order("id", { ascending: false })),
   ]);
 
-  return <Library email={data.claims.email} folders={folders} references={references} />;
+  return <Library email={data.claims.email} folders={folders} references={references} analysisEnabled={analysisConfigured()} />;
 }

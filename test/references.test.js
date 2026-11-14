@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseLink, resolveLink } from "../lib/references.js";
-import { demoReferences } from "../scripts/demo-data.mjs";
 
 test("YouTube forms deduplicate by video ID", () => {
   const urls = [
@@ -39,7 +38,7 @@ test("follows provider short links and keeps an unresolved link if redirected el
   const resolved = await resolveLink(url, async (visited, options) => {
     calls.push(visited);
     assert.equal(options.redirect, "manual");
-    return Response.redirect(calls.length === 1 ? "https://www.tiktok.com/t/ZShort/" : demoReferences[2].url, 302);
+    return Response.redirect(calls.length === 1 ? "https://www.tiktok.com/t/ZShort/" : "https://www.tiktok.com/@scout2015/video/6718335390845095173", 302);
   });
   assert.equal(resolved.id, "6718335390845095173");
   assert.equal(calls.length, 2);
@@ -64,8 +63,27 @@ test("caps redirect attempts and handles provider failures", async () => {
   assert.equal((await resolveLink(original, async () => { throw new Error("Timeout"); })).url, original);
 });
 
-test("the demo seeds an embeddable URL form for each provider", () => {
-  const links = demoReferences.map(({ url }) => parseLink(url));
-  assert.deepEqual(links.map(({ platform }) => platform), ["youtube", "instagram", "tiktok", "x"]);
-  assert.ok(links.every(({ id }) => id));
+test("Pinterest Pin URLs normalize to one canonical identity", () => {
+  const url = "https://www.pinterest.com/pin/256283035028156290/";
+  const expected = { platform: "pinterest", id: "256283035028156290", kind: "pin", url };
+  assert.deepEqual(parseLink(url), expected);
+  assert.deepEqual(parseLink("https://uk.pinterest.com/pin/concrete-and-oak--256283035028156290/?utm_source=copy"), expected);
+  assert.equal(parseLink("https://www.pinterest.com/example/design-board/"), null);
+  assert.equal(parseLink("https://pin.it.example/AbC12"), null);
+});
+
+test("Pinterest share URLs resolve only to accepted Pinterest destinations", async () => {
+  const short = "https://pin.it/AbC12";
+  const pin = "https://www.pinterest.com/pin/256283035028156290/";
+  const resolved = await resolveLink(short + "?tracking=1", async (url) => {
+    assert.equal(url, short);
+    return Response.redirect(pin, 302);
+  });
+  assert.equal(resolved.url, pin);
+  const unresolved = await resolveLink(short, async (url) => {
+    assert.equal(url, short);
+    return Response.redirect("https://www.pinterest.com/example/design-board/", 302);
+  });
+  assert.equal(unresolved.kind, "share");
+  assert.equal(unresolved.url, short);
 });
