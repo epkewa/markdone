@@ -80,8 +80,12 @@ export async function analyzeReference(_state, data) {
   return mutate(async (client, owner) => {
     const id = String(data.get("id") ?? "");
     if (!uuid.test(id)) return { error: "Reference couldn’t be found." };
-    const status = await analyzeSavedVideo(client, owner, id, { explicit: true });
+    const status = await analyzeSavedVideo(client, owner, id, { explicit: true, refreshLegacy: true });
     if (status === "disabled") return { error: "Video analysis isn’t configured." };
+    if (status === "refresh_failed") {
+      revalidatePath("/references");
+      return { error: "The analysis couldn’t be updated. Try again." };
+    }
   });
 }
 

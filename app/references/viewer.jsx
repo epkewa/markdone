@@ -28,8 +28,44 @@ function AnalyzeButton({ action, referenceId, label }) {
   );
 }
 
+function formatTime(seconds) {
+  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+}
+
+function Playbook({ summary, playbook }) {
+  const start = formatTime(playbook.startSeconds);
+  const end = formatTime(playbook.endSeconds);
+  return (
+    <section className="video-analysis recreation-playbook" aria-label="Recreation playbook">
+      <p className="analysis-source">Recreation playbook · Premiere Pro</p>
+      <div>
+        <h3>What’s happening?</h3>
+        <p>{summary}</p>
+        <p className="playbook-observation">
+          <strong>{start === end ? `Around ${start}` : `${start}–${end}`}</strong>{" "}{playbook.observation}
+        </p>
+      </div>
+      <div>
+        <h3>What you’ll need</h3>
+        <ul>{playbook.materials.map((material) => <li key={material}>{material}</li>)}</ul>
+      </div>
+      <div>
+        <h3>Step-by-step recreation</h3>
+        <ol>
+          {playbook.steps.map(({ title, action }) => (
+            <li key={action}><strong>{title}</strong><p>{action}</p></li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
 function VideoAnalysis({ reference, analyze }) {
-  const { ai_status: status, ai_claim_until: claimUntil, ai_summary: summary, ai_steps: steps, ai_source: source } = reference;
+  const {
+    ai_status: status, ai_claim_until: claimUntil, ai_summary: summary, ai_source: source,
+    ai_playbook: playbook, ai_version: version,
+  } = reference;
   const [expiredClaim, setExpiredClaim] = useState(null);
   useEffect(() => {
     if (status !== "processing" || !claimUntil) return;
@@ -37,18 +73,17 @@ function VideoAnalysis({ reference, analyze }) {
     return () => clearTimeout(timer);
   }, [status, claimUntil]);
 
-  if (status === "ready" && summary) {
+  const processing = status === "processing" && claimUntil && expiredClaim !== claimUntil;
+  if (summary) {
+    if (playbook) return <Playbook summary={summary} playbook={playbook} />;
     return (
       <section className="video-analysis" aria-label="AI video analysis">
         <p className="analysis-source">{source === "video" ? "AI analysis · Based on the video" : "AI analysis · Based on public post details"}</p>
         <h3>About this video</h3>
         <p>{summary}</p>
-        {steps?.length > 0 && (
-          <>
-            <h3>How to apply it</h3>
-            <ol>{steps.map((step) => <li key={step}>{step}</li>)}</ol>
-          </>
-        )}
+        {processing && <p className="analysis-source" role="status">Updating analysis…</p>}
+        {analyze && version === 0 && !processing &&
+          <AnalyzeButton action={analyze} referenceId={reference.id} label="Update analysis" />}
       </section>
     );
   }
@@ -58,7 +93,7 @@ function VideoAnalysis({ reference, analyze }) {
   if (status === "not_video") notice = "The platform’s public post details didn’t identify a video.";
   if (status === "unavailable") notice = "There isn’t enough public information to describe this video.";
   if (!analyze) return notice ? <p className="notice video-analysis">{notice}</p> : null;
-  if (status === "processing" && claimUntil && expiredClaim !== claimUntil) {
+  if (processing) {
     return <p className="notice video-analysis" role="status">Video analysis is in progress.</p>;
   }
   if (status === "failed" || status === "processing") notice = "Video analysis couldn’t finish. You can try again.";
