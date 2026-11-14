@@ -4,11 +4,11 @@ Markdone is a private, account-backed library for YouTube, Instagram, TikTok, X,
 
 ## AI video analysis
 
-Apply the Supabase migrations, then set `GOOGLE_GENERATIVE_AI_API_KEY` on the server to enable Gemini 3.5 Flash-Lite. Use a paid Gemini API project for production. Set `YOUTUBE_DATA_API_KEY` as well to use YouTube descriptions and to verify whether a public video is short enough (60 seconds or less) for direct analysis when its public text is sparse. Keep both keys out of browser code. Without the Gemini key, the library still saves and plays references.
+Apply the Supabase migrations, then set the server-side `ANTHROPIC_API_KEY` to enable Claude Haiku 5.5 through the Claude API. The optional `YOUTUBE_DATA_API_KEY` provides richer YouTube descriptions. Keep both keys out of browser code. Without a Claude API key, the library still saves and plays references.
 
 New videos are analyzed when saved. Older videos can be analyzed from their preview on request. The title and AI notes are stored in Supabase, and auto-filing uses the same saved folders as manual filing. AI tries an existing folder first, creates one topic folder if needed, and respects manually selected folders. Opening a preview or refreshing the library never calls the model. The public demo does not use paid AI.
 
-Most requests use public post details and, when useful, a single thumbnail. Markdone labels results based on this limited context. Public links that supply too little information may have no AI notes. No complete video or transcript is stored.
+Claude uses public post details and, when useful, a single thumbnail. Public links that supply too little information may have no AI notes.
 
 ## Run locally
 

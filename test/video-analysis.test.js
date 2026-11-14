@@ -74,14 +74,12 @@ const modelResult = {
 const response = (value) => Response.json(value);
 const html = (value) => new Response(value, { headers: { "Content-Type": "text/html" } });
 
-function youtube({ duration = "PT45S", privacyStatus = "public", title = "Typography transitions in a product launch",
+function youtube({ title = "Typography transitions in a product launch",
   description = "A practical example of staggered typography in a product launch campaign." } = {}) {
   return async (url) => {
     assert.equal(new URL(url).hostname, "www.googleapis.com");
     return response({ items: [{
       snippet: { title, description },
-      contentDetails: { duration },
-      status: { privacyStatus },
     }] });
   };
 }
@@ -208,29 +206,18 @@ test("provider failures preserve the link and require an explicit retry", async 
   assert.equal(await analyze(id, { explicit: true }), "ready");
 });
 
-test("sparse YouTube metadata permits only verified short public video fallback", async () => {
-  for (const [id, duration, privacyStatus, expected] of [
-    ["shortvideo1", "PT1M", "public", "video"],
-    ["longvideo01", "PT1M1S", "public", "unavailable"],
-    ["hiddenclip1", "PT30S", "unlisted", "unavailable"],
-    ["unknownvid1", "live", "public", "unavailable"],
-  ]) {
-    const row = await save(owner, watch(id));
-    const status = await analyze(row, {
-      fetcher: (url) => new URL(url).hostname === "www.googleapis.com"
-        ? youtube({ duration, privacyStatus, title: "YouTube", description: "" })(url)
-        : html("<head></head>"),
-      generate: async (input) => {
-        assert.equal(expected, "video");
-        assert.equal(input.source, "video");
-        assert.equal(input.videoUrl, watch(id));
-        return modelResult;
-      },
-    });
-    assert.equal(status, expected === "video" ? "ready" : "unavailable");
-    const saved = await read(owner, row);
-    assert.equal(saved.ai_source, expected === "video" ? "video" : null);
-  }
+test("an empty YouTube post is saved without spending a model call", async () => {
+  const row = await save(owner, watch("sparsevid01"));
+  let calls = 0;
+  const status = await analyze(row, {
+    fetcher: (url) => new URL(url).hostname === "www.googleapis.com"
+      ? youtube({ title: "YouTube", description: "" })(url)
+      : html("<head></head>"),
+    generate: async () => { calls++; return modelResult; },
+  });
+  assert.equal(status, "unavailable");
+  assert.equal(calls, 0);
+  assert.equal((await read(owner, row)).ai_source, null);
 });
 
 test("a resolved share carries manual folders into analysis", async () => {
@@ -266,22 +253,27 @@ test("metadata only treats generic posts as video with evidence, and cannot redi
   assert.equal(safeThumbnail("pinterest", "https://i.pinimg.com/a.jpg"), "https://i.pinimg.com/a.jpg");
 });
 
-test("Gemini receives the canonical YouTube URL and a bounded structured request", async () => {
-  const url = watch("shortvideo1");
-  const result = await generateVideoAnalysis({ source: "video", videoUrl: url, platform: "youtube", folders: [] }, {
+test("Claude receives a thumbnail and a bounded structured request", async () => {
+  const result = await generateVideoAnalysis({
+    title: "Typography transitions", platform: "youtube", folders: [],
+    thumbnail: { data: Uint8Array.of(255, 216, 255), mediaType: "image/jpeg" },
+  }, {
     apiKey: "stub",
     signal: AbortSignal.timeout(5000),
     fetcher: async (endpoint, request) => {
-      assert.match(endpoint, /\/models\/gemini-3\.5-flash-lite:generateContent$/);
+      assert.equal(new URL(endpoint).hostname, "api.anthropic.com");
+      assert.equal(new URL(endpoint).pathname, "/v1/messages");
+      assert.equal(new Headers(request.headers).get("x-api-key"), "stub");
       const body = JSON.parse(request.body);
-      assert.deepEqual(body.contents[0].parts[0].fileData, { mimeType: "video/mp4", fileUri: url });
-      assert.equal(body.generationConfig.mediaResolution, "MEDIA_RESOLUTION_LOW");
-      assert.equal(body.generationConfig.thinkingConfig.thinkingLevel, "minimal");
-      assert.equal(body.generationConfig.responseMimeType, "application/json");
-      assert.ok(body.generationConfig.maxOutputTokens < 1000);
+      assert.equal(body.model, "claude-haiku-5-5");
+      assert.equal(body.messages[0].content[0].source.media_type, "image/jpeg");
+      assert.equal(body.thinking.type, "disabled");
+      assert.equal(body.output_config.format.type, "json_schema");
+      assert.equal(body.max_tokens, 600);
       return response({
-        candidates: [{ content: { role: "model", parts: [{ text: JSON.stringify(modelResult) }] }, finishReason: "STOP" }],
-        usageMetadata: { promptTokenCount: 800, candidatesTokenCount: 50, totalTokenCount: 850 },
+        id: "msg_test", type: "message", role: "assistant", model: "claude-haiku-5-5",
+        content: [{ type: "text", text: JSON.stringify(modelResult) }], stop_reason: "end_turn",
+        usage: { input_tokens: 800, output_tokens: 50 },
       });
     },
   });
