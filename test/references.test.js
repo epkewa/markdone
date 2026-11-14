@@ -86,4 +86,20 @@ test("Pinterest share URLs resolve only to accepted Pinterest destinations", asy
   });
   assert.equal(unresolved.kind, "share");
   assert.equal(unresolved.url, short);
+
+  const redirect = "https://api.pinterest.com/url_shortener/AbC12/redirect/";
+  const viaApi = await resolveLink(short, async (url) => {
+    if (url === short) return Response.redirect(redirect, 308);
+    assert.equal(url, redirect);
+    return Response.redirect(pin + "sent/?sender=123", 302);
+  });
+  assert.equal(viaApi.url, pin);
+
+  let requests = 0;
+  const unrelated = await resolveLink(short, async () => {
+    requests++;
+    return Response.redirect("https://api.pinterest.com/url_shortener/Other/redirect/", 308);
+  });
+  assert.equal(requests, 1);
+  assert.equal(unrelated.url, short);
 });

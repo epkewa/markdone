@@ -218,6 +218,21 @@ test("an empty YouTube post is saved without spending a model call", async () =>
   assert.equal(status, "unavailable");
   assert.equal(calls, 0);
   assert.equal((await read(owner, row)).ai_source, null);
+  assert.equal(await analyze(row), "unchanged");
+  assert.equal(await analyze(row, { explicit: true }), "ready");
+});
+
+test("an older Pin can be rechecked when its public metadata starts identifying a video", async () => {
+  const id = await save(owner, "https://www.pinterest.com/pin/88421/");
+  await db.query("update saved_references set ai_status = 'not_video' where id = $1", [id]);
+  const options = {
+    fetcher: async () => html('<head><meta property="og:type" content="video.other"><meta property="og:title" content="Typography for a launch campaign"></head>'),
+  };
+  assert.equal(await analyze(id, options), "unchanged");
+  assert.equal(await analyze(id, { ...options, explicit: true }, other), "unchanged");
+  assert.equal(await analyze(id, { ...options, explicit: true }), "ready");
+  assert.equal((await read(owner, id)).ai_summary, modelResult.summary);
+  assert.equal(await analyze(id, { ...options, explicit: true }), "unchanged");
 });
 
 test("a resolved share carries manual folders into analysis", async () => {
@@ -238,7 +253,8 @@ test("a resolved share carries manual folders into analysis", async () => {
 test("metadata only treats generic posts as video with evidence, and cannot redirect thumbnail fetches", async () => {
   const link = { url: "https://www.pinterest.com/pin/123/", platform: "pinterest", post_id: "123" };
   const options = { signal: AbortSignal.timeout(5000) };
-  const imagePost = await getVideoMetadata(link, { ...options, fetcher: async () => html(
+  const instagram = { url: "https://www.instagram.com/p/abc/", platform: "instagram", post_id: "abc" };
+  const imagePost = await getVideoMetadata(instagram, { ...options, fetcher: async () => html(
     '<head><meta property="og:title" content="Shapes &amp; lines"></head><body><meta property="og:video" content="ignored"></body>',
   ) });
   assert.equal(imagePost.video, false);
@@ -251,6 +267,21 @@ test("metadata only treats generic posts as video with evidence, and cannot redi
   assert.equal(video.video, true);
   assert.equal(video.thumbnail, null);
   assert.equal(safeThumbnail("pinterest", "https://i.pinimg.com/a.jpg"), "https://i.pinimg.com/a.jpg");
+});
+
+test("Pinterest video metadata can appear late and must match the requested or canonical Pin", async () => {
+  const link = { url: "https://www.pinterest.com/pin/123/", platform: "pinterest", post_id: "123" };
+  const canonical = "https://www.pinterest.com/pin/456/";
+  const unrelated = '<script type="application/ld+json">{"@type":"VideoObject","@id":"https://www.pinterest.com/pin/789/","name":"Other video"}</script>';
+  const head = "<head></head><body>";
+  const padding = " ".repeat(1200 * 1024);
+  const video = `<meta property="og:url" content="${canonical}"><script type="application/ld+json">{"@type":"VideoObject","@id":"${canonical}","name":"Motion design","thumbnailUrl":["https://i.pinimg.com/motion.jpg"]}</script>`;
+  const get = (body) => getVideoMetadata(link, { fetcher: async () => html(head + padding + body) });
+  assert.equal((await get(unrelated)).video, false);
+  const result = await get(unrelated + video);
+  assert.equal(result.video, true);
+  assert.equal(result.title, "Motion design");
+  assert.equal(result.thumbnail, "https://i.pinimg.com/motion.jpg");
 });
 
 test("Claude receives a thumbnail and a bounded structured request", async () => {

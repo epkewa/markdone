@@ -53,17 +53,19 @@ function VideoAnalysis({ reference, analyze }) {
     );
   }
 
-  if (!reference.post_id || reference.kind === "photo" || !status || status === "not_video") return null;
-  if (status === "unavailable") return <p className="notice video-analysis">There isn’t enough public information to describe this video.</p>;
-  if (!analyze) return null;
+  if (!reference.post_id || reference.kind === "photo" || !status) return null;
+  let notice;
+  if (status === "not_video") notice = "The platform’s public post details didn’t identify a video.";
+  if (status === "unavailable") notice = "There isn’t enough public information to describe this video.";
+  if (!analyze) return notice ? <p className="notice video-analysis">{notice}</p> : null;
   if (status === "processing" && claimUntil && expiredClaim !== claimUntil) {
     return <p className="notice video-analysis" role="status">Video analysis is in progress.</p>;
   }
-  const retryable = status === "failed" || status === "processing";
+  if (status === "failed" || status === "processing") notice = "Video analysis couldn’t finish. You can try again.";
   return (
     <div className="video-analysis">
-      {retryable && <p role="status">Video analysis couldn’t finish. You can try again.</p>}
-      <AnalyzeButton action={analyze} referenceId={reference.id} label={retryable ? "Retry analysis" : "Analyze video"} />
+      {notice && <p role="status">{notice}</p>}
+      <AnalyzeButton action={analyze} referenceId={reference.id} label={notice ? "Retry analysis" : "Analyze video"} />
     </div>
   );
 }
@@ -114,7 +116,7 @@ export function Viewer({ reference, close, demo, retry, analyze }) {
         <OriginalLink reference={reference} className="button secondary" />
       </div>
       {retry && link && !link.id && !reference.post_id && (
-        <ActionForm action={retry} close={close} label="Retry preview">
+        <ActionForm action={retry} close={close} label="Retry link">
           <input type="hidden" name="id" value={reference.id} />
         </ActionForm>
       )}

@@ -39,9 +39,9 @@ function rpcArgs(reference, folders) {
   };
 }
 
-async function analyzeAfterSave(client, owner, id) {
+async function analyzeAfterSave(client, owner, id, options) {
   try {
-    await analyzeSavedVideo(client, owner, id);
+    await analyzeSavedVideo(client, owner, id, options);
   } catch (error) {
     console.error("Markdone could not update video analysis", error?.code || error?.name);
   }
@@ -72,7 +72,7 @@ export async function retryReference(_state, data) {
     if (!reference?.id) return { error: "The platform didn’t resolve this share link. You can still open the original." };
     const { data: resolvedId, error: saveError } = await client.rpc("save_reference", { ...rpcArgs(reference, []), p_share_id: id });
     if (saveError) throw saveError;
-    if (reference.kind !== "photo") await analyzeAfterSave(client, owner, resolvedId);
+    if (reference.kind !== "photo") await analyzeAfterSave(client, owner, resolvedId, { explicit: true });
   });
 }
 
