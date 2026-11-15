@@ -37,14 +37,14 @@ export function ActionForm({ action, close, label, destructive = false, cancel =
   }, [result, close]);
 
   return (
-    <form action={submit} className="stack">
+    <form action={submit} className="stack" aria-busy={pending}>
       <fieldset className="form-content stack" disabled={pending}>
         {children}
       </fieldset>
       {result?.error && <p role="alert" className="notice">{result.error}</p>}
       <div className="dialog-actions">
         {cancel && <button type="button" className="button secondary" onClick={close}>Cancel</button>}
-        <button className={`button ${destructive ? "destructive" : "primary"}`} disabled={pending}>
+        <button type="submit" className={`button ${destructive ? "destructive" : "primary"}`} disabled={pending}>
           {pending ? "Working…" : label}
         </button>
       </div>
@@ -117,18 +117,24 @@ export function AddReference({ action, close, folders, activeFolder }) {
 
   return (
     <Dialog close={close} dismissDisabled={pending}>
-      <h2 id="dialog-title">Add references</h2>
+      <div className="dialog-symbol"><Icon name="link" size={21} /></div>
+      <h2 id="dialog-title">Save references</h2>
       <p className="dialog-description">Paste links from {referenceSources}. Separate them with new lines, spaces, or commas.</p>
       <form onSubmit={submit} className="stack">
         <fieldset className="form-content stack" disabled={pending}>
           <label className="field">
             Links
-            <textarea autoFocus required rows={4} placeholder="https://…" value={input} onChange={(event) => setInput(event.target.value)} />
+            <textarea autoFocus required rows={4} placeholder="Paste one or more URLs" value={input} onChange={(event) => setInput(event.target.value)} />
           </label>
           {link && <p className="detected"><Icon name={link.platform} size={16} />{platforms[link.platform].name}</p>}
           <FolderChoices folders={folders} selected={activeFolder ? [activeFolder] : []} />
         </fieldset>
-        {progress && <p role="status">Processed {progress.completed} of {progress.total} links. Keep this page open until processing finishes.</p>}
+        {progress && (
+          <div className="save-progress">
+            <p role="status">Processed {progress.completed} of {progress.total} links. Keep this page open until processing finishes.</p>
+            <progress aria-label="Links processed" max={progress.total} value={progress.completed} />
+          </div>
+        )}
         {result?.error && <p role="alert" className="notice">{result.error}</p>}
         {result?.failed && (
           <div role="alert" className="notice reference-batch-errors">
@@ -140,7 +146,7 @@ export function AddReference({ action, close, folders, activeFolder }) {
         )}
         <div className="dialog-actions">
           <button type="button" className="button secondary" onClick={close} disabled={pending}>Cancel</button>
-          <button className="button primary" disabled={pending}>{pending ? "Processing…" : "Save"}</button>
+          <button type="submit" className="button primary" disabled={pending}>{pending ? "Saving…" : entries.length > 1 ? "Save references" : "Save reference"}</button>
         </div>
       </form>
     </Dialog>
@@ -157,7 +163,7 @@ export function EditFolders({ action, reference, folders, close }) {
           <input type="hidden" name="id" value={reference.id} />
           <FolderChoices folders={folders} selected={reference.folder_references.map(({ folder_id }) => folder_id)} />
         </ActionForm>
-      ) : <p>Create a project folder to organize this reference.</p>}
+      ) : <p className="panel-muted">Create a project folder to organize this reference.</p>}
     </>
   );
 }

@@ -20,22 +20,15 @@ export default async function SignInPage() {
         <Brand />
         <div className="sign-in-content">
           <h1>Sign in to Markdone</h1>
-          <p>Open your reference library.</p>
-          <div className="demo-entry">
-            <Link className="button secondary" href="/demo"><Icon name="play" size={18} /> Try demo</Link>
-            <span>No account needed.</span>
-          </div>
+          <p>Open your library of creative references, editing techniques, and project folders.</p>
           <SignInForm ready={ready} />
+          <div className="demo-entry">
+            <span>Explore without an account</span>
+            <Link href="/demo">Try demo <Icon name="arrow" size={16} /></Link>
+          </div>
         </div>
       </section>
-      <div className="sign-in-art" aria-hidden="true">
-        <div className="art-cards">
-          <div className="art-card instagram"><Icon name="instagram" size={44} /></div>
-          <div className="art-card tiktok"><Icon name="tiktok" size={46} /></div>
-          <div className="art-card youtube"><Icon name="youtube" size={54} /></div>
-          <div className="art-card x"><Icon name="x" size={29} /></div>
-        </div>
-      </div>
+      <div className="sign-in-art" aria-hidden="true" />
     </main>
   );
 }

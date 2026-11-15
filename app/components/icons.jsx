@@ -1,4 +1,12 @@
 const paths = {
+  search: <><circle cx="10.8" cy="10.8" r="6.3" /><path d="m16 16 4 4" /></>,
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+  chevron: <path d="m9 6 6 6-6 6" />,
+  film: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 4v16M17 4v16M3 9h4m-4 6h4M17 9h4m-4 6h4" /></>,
+  steps: <><path d="M10 6h10M10 12h10M10 18h10" /><path d="M4 6h1M4 12h1M4 18h1" strokeWidth="2.5" /></>,
+  edit: <><path d="m14 5 5 5m-2.2-7.2a1.4 1.4 0 0 1 2 0l2.4 2.4a1.4 1.4 0 0 1 0 2L9 19.4l-5.5 1.1L4.6 15Z" /></>,
+  delete: <path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 10v6m4-6v6" />,
+  arrow: <path d="M4 12h15m-6-6 6 6-6 6" />,
   plan: <path d="M12 2.5 14.2 9.8 21.5 12 14.2 14.2 12 21.5 9.8 14.2 2.5 12 9.8 9.8 12 2.5Z" />,
   add: <path d="M12 5v14M5 12h14" />,
   library: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,

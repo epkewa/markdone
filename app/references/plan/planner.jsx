@@ -24,7 +24,7 @@ function ChatHistory({ chats, active }) {
       {chats.map(({ id, title }) => (
         <Link key={id} className={id === active ? "active" : undefined} href={chatPath(id)}
           prefetch={false} aria-current={id === active ? "page" : undefined} title={title}>
-          {title}
+          <Icon name="film" size={15} /><span>{title}</span>
         </Link>
       ))}
     </nav>
@@ -48,7 +48,7 @@ function Reply({ reply, turn, available }) {
                 <li key={id} id={referenceAnchor(turn, id)} className="planner-reference">
                   <span className="planner-reference-number" aria-hidden="true">{index + 1}</span>
                   <div>
-                    <h3>{title} <span className="planner-time">{start === end ? start : `${start}–${end}`}</span></h3>
+                    <h3><span>{title}</span><span className="planner-time">{start === end ? start : `${start}–${end}`}</span></h3>
                     <p><strong>Why it fits:</strong> {why}</p>
                     <p><strong>What to borrow:</strong> {borrow}</p>
                     {available.has(id) ? (
@@ -149,7 +149,7 @@ function Conversation({ chat, turns, available, enabled }) {
       {chat ? (
         <div className="planner-chat-heading">
           <h2>{chat.title}</h2>
-          <button type="button" className="button secondary danger-text" disabled={pending}
+          <button type="button" className="button secondary compact danger-text" disabled={pending}
             onClick={() => setDeleting(true)}>Delete chat</button>
         </div>
       ) : (
@@ -158,9 +158,9 @@ function Conversation({ chat, turns, available, enabled }) {
           <p>Describe your idea, or try a prompt below.</p>
           <div className="planner-examples">
             {examples.map((example) => (
-              <button key={example} type="button" className="button secondary"
+              <button key={example} type="button" className="planner-example"
                 disabled={pending || !enabled} onClick={() => { changeDraft(example); composer.current?.focus(); }}>
-                {example}
+                <span>{example}</span><Icon name="arrow" size={16} />
               </button>
             ))}
           </div>
@@ -187,8 +187,9 @@ function Conversation({ chat, turns, available, enabled }) {
           placeholder={chat ? "Can I shoot this alone in 30 seconds?" : "A 30-second gym motivation video, shot solo on my phone…"} />
         <div className="planner-composer-actions">
           <p className="planner-muted">Searches the recreation playbooks in your library.</p>
-          <button className="button primary" disabled={!draft.trim() || pending || !enabled || Boolean(error?.conflict)}>
+          <button type="submit" className="button primary" disabled={!draft.trim() || pending || !enabled || Boolean(error?.conflict)}>
             {pending ? "Planning…" : chat ? "Send" : "Find references"}
+            {!pending && <Icon name="arrow" size={16} />}
           </button>
         </div>
         {!enabled && <p className="notice" role="status">Video planning is unavailable right now.</p>}
@@ -221,9 +222,11 @@ export function Planner({ email, chats, chat, turns, available, enabled }) {
       <aside className="sidebar planner-sidebar">
         <Brand />
         <div className="planner-sidebar-main">
-          <Link className="button secondary planner-back" href="/references"><Icon name="library" size={16} /> All References</Link>
-          <Link className="button primary" href={plannerPath}><Icon name="add" size={17} /> New chat</Link>
-          <h2>Saved conversations</h2>
+          <nav aria-label="Workspace">
+            <Link className="nav-item" href="/references"><Icon name="library" size={17} /><span>All References</span></Link>
+            <span className="nav-item active" aria-current="page"><Icon name="plan" size={17} /><span>Plan a video</span></span>
+          </nav>
+          <h2 className="nav-label">Saved conversations</h2>
           <ChatHistory chats={chats} active={chat?.id} />
         </div>
         <div className="account">
@@ -233,24 +236,30 @@ export function Planner({ email, chats, chat, turns, available, enabled }) {
         </div>
       </aside>
       <main className="workspace planner-workspace">
-        <div className="planner-mobile">
-          <Link className="button secondary" href="/references"><Icon name="library" size={16} /> All References</Link>
-          <Link className="button primary" href={plannerPath}><Icon name="add" size={17} /> New chat</Link>
-          <details key={chat?.id ?? "new"}>
-            <summary>Saved conversations</summary>
-            <ChatHistory chats={chats} active={chat?.id} />
-          </details>
-        </div>
-        <header className="workspace-header">
-          <div className="workspace-title">
-            <div className="heading-icon"><Icon name="plan" size={23} /></div>
-            <div>
-              <h1>Plan a video</h1>
-              <p>Find inspiration in your saved videos and turn it into a plan you can shoot.</p>
-            </div>
+        <div className="workspace-bar">
+          <div className="planner-bar-content">
+            <nav className="breadcrumbs" aria-label="Breadcrumb">
+              <Icon name="library" size={16} />
+              <Link href="/references">Library</Link>
+              <Icon name="chevron" size={14} />
+              <span aria-current="page">Plan a video</span>
+            </nav>
+            <Link className="button primary" href={plannerPath}><Icon name="add" size={17} /> New chat</Link>
           </div>
-        </header>
-        <Conversation key={chat?.id ?? "new"} chat={chat} turns={turns} available={available} enabled={enabled} />
+        </div>
+        <div className="workspace-content planner-content">
+          <header className="workspace-title planner-title">
+            <h1>Plan a video</h1>
+            <p>Turn your saved references into a plan you can shoot and edit.</p>
+          </header>
+          <div className="planner-mobile">
+            <details key={chat?.id ?? "new"}>
+              <summary>Saved conversations</summary>
+              <ChatHistory chats={chats} active={chat?.id} />
+            </details>
+          </div>
+          <Conversation key={chat?.id ?? "new"} chat={chat} turns={turns} available={available} enabled={enabled} />
+        </div>
       </main>
     </div>
   );
