@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { formatName, formatTime, parseLink, platforms, referenceTitle } from "../../lib/references";
+import { videoAnalysisVersion } from "../../lib/video-analysis/limits";
 import { Icon } from "../components/icons";
 import { ActionForm } from "./dialogs";
 
@@ -26,11 +27,18 @@ function PanelHeading({ icon, title, id, children }) {
   );
 }
 
-function AnalyzeButton({ action, referenceId, label }) {
+function AnalyzeButton({ action, referenceId, label, hasVideoTime, requiresTime }) {
   const [result, submit, pending] = useActionState(action, null);
   return (
     <form action={submit} className="video-analysis-action" aria-busy={pending}>
       <input type="hidden" name="id" value={referenceId} />
+      {hasVideoTime && (
+        <label className="analysis-start-time">
+          <span>Start time {requiresTime ? "(m:ss)" : "(optional)"}</span>
+          <input name="startTime" type="text" placeholder="0:00" pattern="[0-9]{1,4}:[0-5][0-9]"
+            maxLength={7} required={requiresTime} disabled={pending} />
+        </label>
+      )}
       <button type="submit" className="button secondary compact" disabled={pending}>
         {pending ? "Analyzing video…" : label}
       </button>
@@ -64,7 +72,7 @@ function Playbook({ playbook }) {
 function VideoAnalysis({ reference, analyze }) {
   const {
     ai_status: status, ai_claim_until: claimUntil, ai_summary: summary, ai_source: source,
-    ai_playbook: playbook, ai_version: version,
+    ai_playbook: playbook, ai_video_window: videoWindow, ai_version: version,
   } = reference;
   const [expiredClaim, setExpiredClaim] = useState(null);
   useEffect(() => {
@@ -76,9 +84,14 @@ function VideoAnalysis({ reference, analyze }) {
   const processing = status === "processing" && claimUntil && expiredClaim !== claimUntil;
   let notice;
   let actionLabel;
+  const isYouTube = reference.platform === "youtube";
+  const canUpgrade = version === 0 || (isYouTube && version < videoAnalysisVersion);
   if (summary) {
-    if (processing && !playbook) notice = "Updating analysis…";
-    if (analyze && version === 0 && !processing && !playbook) actionLabel = "Update analysis";
+    if (processing) notice = "Updating analysis…";
+    if (analyze && !processing) {
+      if (canUpgrade) actionLabel = "Update analysis";
+      else if (isYouTube) actionLabel = "Analyze another moment";
+    }
   } else {
     if (!reference.post_id || reference.kind === "photo" || !status) return null;
     if (status === "not_video") notice = "The platform’s public post details didn’t identify a video.";
@@ -98,7 +111,9 @@ function VideoAnalysis({ reference, analyze }) {
     <>
       <section className="viewer-panel video-analysis" aria-labelledby="analysis-title">
         <PanelHeading icon="plan" title="AI analysis" id="analysis-title">
-          {summary && <p>{source === "video" ? "Based on the video" : "Based on public post details"}</p>}
+          {summary && <p>{source === "video"
+            ? (videoWindow ? `Analyzed ${formatTime(videoWindow.startSeconds)}–${formatTime(videoWindow.endSeconds)}` : "Based on the video")
+            : "Based on public post details"}</p>}
         </PanelHeading>
         {summary && <p>{summary}</p>}
         {summary && playbook && (
@@ -107,7 +122,10 @@ function VideoAnalysis({ reference, analyze }) {
           </p>
         )}
         {notice && <p className="panel-muted" role="status">{notice}</p>}
-        {actionLabel && <AnalyzeButton action={analyze} referenceId={reference.id} label={actionLabel} />}
+        {actionLabel && (
+          <AnalyzeButton action={analyze} referenceId={reference.id} label={actionLabel}
+            hasVideoTime={isYouTube} requiresTime={Boolean(summary) && !canUpgrade} />
+        )}
       </section>
       {summary && playbook && <Playbook playbook={playbook} />}
     </>

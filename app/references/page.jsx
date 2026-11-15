@@ -28,7 +28,7 @@ export default async function ReferencesPage({ searchParams }) {
   const [folders, references] = await Promise.all([
     collectPages(() => client.from("folders").select("id,name").eq("owner_id", owner).order("name").order("id")),
     collectPages(() => client.from("saved_references")
-      .select("id,platform,post_id,kind,url,title,created_at,ai_status,ai_summary,ai_playbook,ai_version,ai_source,ai_claim_until,folder_references(folder_id)")
+      .select("id,platform,post_id,kind,url,title,created_at,ai_status,ai_summary,ai_playbook,ai_video_window,ai_version,ai_source,ai_claim_until,folder_references(folder_id)")
       .eq("owner_id", owner).order("created_at", { ascending: false }).order("id", { ascending: false })),
   ]);
 

@@ -80,8 +80,16 @@ export async function analyzeReference(_state, data) {
   return mutate(async (client, owner) => {
     const id = String(data.get("id") ?? "");
     if (!uuid.test(id)) return { error: "Reference couldn’t be found." };
-    const status = await analyzeSavedVideo(client, owner, id, { explicit: true, refreshLegacy: true });
+    const time = String(data.get("startTime") ?? "").trim();
+    const match = /^(\d{1,4}):([0-5]\d)$/.exec(time);
+    if (time && !match) return { error: "Enter a start time in minutes and seconds, such as 2:15." };
+    const startAt = match ? Number(match[1]) * 60 + Number(match[2]) : undefined;
+    const status = await analyzeSavedVideo(client, owner, id, { explicit: true, refreshLegacy: true, startAt });
     if (status === "disabled") return { error: "Video analysis isn’t configured." };
+    if (status === "invalid_start") {
+      revalidatePath("/references");
+      return { error: "Choose a time within a public YouTube video with a verified duration." };
+    }
     if (status === "refresh_failed" || status === "refresh_unavailable") {
       revalidatePath("/references");
       return { error: status === "refresh_unavailable"

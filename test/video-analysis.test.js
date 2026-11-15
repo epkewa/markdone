@@ -30,14 +30,14 @@ async function save(account, url, folders = [], share = null) {
 
 function clientFor(account) {
   const calls = {
-    claim_reference_analysis: "select claim_reference_analysis($1,$2,$3) as result",
-    finish_reference_analysis: "select finish_reference_analysis($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9) as result",
+    claim_reference_analysis: "select claim_reference_analysis($1,$2,$3,$4) as result",
+    finish_reference_analysis: "select finish_reference_analysis($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10) as result",
   };
   return {
     async rpc(name, params) {
       const args = name === "claim_reference_analysis"
-        ? [params.p_reference_id, params.p_explicit, params.p_refresh_legacy ?? false]
-        : [params.p_reference_id, params.p_token, params.p_status, params.p_playbook ?? null, params.p_title ?? null,
+        ? [params.p_reference_id, params.p_explicit, params.p_refresh_legacy ?? false, params.p_analyze_moment ?? false]
+        : [params.p_reference_id, params.p_token, params.p_status, params.p_playbook ?? null, params.p_video_window ?? null, params.p_title ?? null,
           params.p_summary ?? null, params.p_source ?? null, params.p_folder_id ?? null, params.p_folder_name ?? null];
       try {
         const [row] = await asAccount(account, calls[name], args);
@@ -75,16 +75,23 @@ const whipPan = {
   title: "Whip-pan Match Cut",
   summary: "A fast pan hides a change from an interior to an exterior shot.",
   playbook: {
-    startSeconds: 5.75,
-    endSeconds: 6.5,
+    startTime: "0:05.750",
+    endTime: "0:06.500",
     observation: "The doorway and the railing sweep left through the frame on either side of the cut.",
     materials: ["Two clips with rightward pans"],
     steps: [
       { title: "Find the matching pans", action: "Scrub both clips and mark the first frame with strong leftward streaks." },
       { title: "Cut inside the blur", action: "Trim the outgoing clip to end on its streak and align the incoming clip’s streak on V1." },
-      { title: "Check the join", action: "Play across the edit. Use the Rolling Edit tool to shift the cut if a sharp frame flashes." },
     ],
+    playbackCheck: "Play across the edit. Use the Rolling Edit tool to shift the cut if a sharp frame flashes.",
   },
+};
+const { startTime, endTime, playbackCheck, ...whipPanBuild } = whipPan.playbook;
+const storedWhipPan = {
+  ...whipPanBuild,
+  startSeconds: 5.75,
+  endSeconds: 6.5,
+  steps: [...whipPanBuild.steps, { title: "Check playback", action: playbackCheck }],
 };
 
 const response = (value) => Response.json(value);
@@ -113,7 +120,7 @@ function analyze(id, options = {}, account = owner) {
 
 async function read(account, id) {
   const [row] = await asAccount(account, `
-    select r.title, r.ai_summary, r.ai_steps, r.ai_playbook, r.ai_version, r.ai_source, r.ai_status,
+    select r.title, r.ai_summary, r.ai_steps, r.ai_playbook, r.ai_video_window, r.ai_version, r.ai_source, r.ai_status,
       array(select f.name from folder_references m join folders f on f.id = m.folder_id
         where m.reference_id = r.id order by f.name) as folders
     from saved_references r where r.id = $1
@@ -159,7 +166,7 @@ test("existing videos are opt-in; explicit analysis saves a result and reloads o
   assert.equal(await analyze(original, { ...options, explicit: true }), "ready");
   const reloaded = await read(owner, original);
   assert.deepEqual(reloaded, {
-    title: modelResult.title, ai_summary: modelResult.summary, ai_steps: [], ai_playbook: null, ai_version: 1,
+    title: modelResult.title, ai_summary: modelResult.summary, ai_steps: [], ai_playbook: null, ai_video_window: null, ai_version: 2,
     ai_status: "ready", ai_source: "metadata", folders: ["Motion Design"],
   });
   assert.deepEqual(await read(owner, original), reloaded);
@@ -358,6 +365,7 @@ test("a public Short uses one Gemini video request and persists a grounded playb
     // The mock title and description mention typography, but the video is a whip-pan.
     const body = JSON.parse(request.body);
     assert.equal(JSON.parse(body.input[0].text).durationSeconds, 180);
+    assert.equal(JSON.parse(body.input[0].text).sourceTitle, undefined);
     assert.equal(body.input.length, 2);
     assert.deepEqual(body.input[1], {
       type: "video", uri: watch("whipPan0001"),
@@ -370,19 +378,19 @@ test("a public Short uses one Gemini video request and persists a grounded playb
   const stored = await read(owner, id);
   assert.equal(stored.title, whipPan.title);
   assert.equal(stored.ai_source, "video");
-  assert.equal(stored.ai_version, 1);
-  assert.deepEqual(stored.ai_playbook, whipPan.playbook);
+  assert.equal(stored.ai_version, 2);
+  assert.deepEqual(stored.ai_playbook, storedWhipPan);
   assert.equal(await analyze(await save(owner, watch("whipPan0001")), options), "unchanged");
   assert.equal(requests, 1);
 });
 
-test("YouTube video input requires verified public, non-live content at most three minutes long", async () => {
+test("YouTube video input requires verified public, non-live content and samples long videos", async () => {
   const link = { platform: "youtube", url: watch("eligibility"), post_id: "eligibility" };
   for (const [metadata, durationSeconds] of [
     [{ duration: "PT9S" }, 9],
     [{ duration: "PT2M60S" }, 180],
-    [{ duration: "PT3M1S" }, null],
-    [{ duration: "PT1H" }, null],
+    [{ duration: "PT3M1S" }, 181],
+    [{ duration: "PT1H" }, 3600],
     [{ duration: "PT0S" }, null],
     [{ duration: "00:02:00" }, null],
     [{ duration: "PT15S", privacyStatus: "unlisted" }, null],
@@ -392,7 +400,10 @@ test("YouTube video input requires verified public, non-live content at most thr
     [{}, null],
   ]) {
     const result = await getVideoMetadata(link, { youtubeKey: "stub", fetcher: youtube(metadata) });
-    assert.deepEqual(result.videoInput, durationSeconds ? { url: link.url, durationSeconds } : null);
+    assert.deepEqual(result.videoInput, durationSeconds ? {
+      url: link.url, durationSeconds,
+      ...(durationSeconds > 180 && { startSeconds: 0, endSeconds: 90 }),
+    } : null);
     assert.ok(result.description);
   }
 });
@@ -400,7 +411,7 @@ test("YouTube video input requires verified public, non-live content at most thr
 test("metadata-only analysis cannot save a playbook or claim video as its source", async () => {
   const id = await save(owner, watch("longvideo01"));
   assert.equal(await analyze(id, {
-    fetcher: youtube({ duration: "PT10M" }),
+    fetcher: youtube({ duration: "PT10M", privacyStatus: "unlisted" }),
     generate: async ({ videoInput }) => { assert.equal(videoInput, null); return whipPan; },
   }), "ready");
   const stored = await read(owner, id);
@@ -410,8 +421,9 @@ test("metadata-only analysis cannot save a playbook or claim video as its source
 
 test("video summaries survive incomplete, out-of-bounds, or omitted playbooks", async () => {
   for (const [id, playbook] of [
-    ["badtime0001", { ...whipPan.playbook, endSeconds: 12 }],
-    ["badsteps001", { ...whipPan.playbook, steps: whipPan.playbook.steps.slice(0, 2) }],
+    ["badtime0001", { ...whipPan.playbook, endTime: "0:12" }],
+    ["badsteps001", { ...whipPan.playbook, steps: whipPan.playbook.steps.slice(0, 1) }],
+    ["badcheck001", { ...whipPan.playbook, playbackCheck: "" }],
     ["nodetail001", null],
   ]) {
     const reference = await save(owner, watch(id));
@@ -424,6 +436,50 @@ test("video summaries survive incomplete, out-of-bounds, or omitted playbooks", 
     assert.equal(stored.ai_summary, whipPan.summary);
     assert.equal(stored.ai_playbook, null);
   }
+});
+
+test("a long YouTube reference can replace an older summary with a bounded, timestamped playbook", async () => {
+  const id = await save(owner, watch("longsample1"));
+  await db.query(`
+    update saved_references
+      set ai_status = 'ready', ai_version = 1, ai_source = 'metadata', ai_summary = 'Old summary'
+      where id = $1
+  `, [id]);
+  const getMetadata = youtube({ duration: "PT20M" });
+  let requests = 0;
+  const options = { explicit: true, refreshLegacy: true, startAt: 480, generate: generateVideoAnalysis,
+    fetcher: async (url, request) => {
+      if (new URL(url).hostname === "www.googleapis.com") return getMetadata(url);
+      requests++;
+      const body = JSON.parse(request.body);
+      assert.deepEqual(body.input[1].processing, {
+        type: "static", fps: 4, start_offset: "480s", end_offset: "570s",
+      });
+      assert.equal(JSON.parse(body.input[0].text).durationSeconds, 90);
+      return geminiResponse({
+        ...whipPan,
+        playbook: { ...whipPan.playbook, startTime: "8:05.750", endTime: "8:06.500" },
+      });
+    },
+  };
+  assert.equal(await analyze(id, options), "ready");
+  const stored = await read(owner, id);
+  assert.equal(stored.ai_version, 2);
+  assert.equal(stored.ai_source, "video");
+  assert.deepEqual(stored.ai_video_window, { startSeconds: 480, endSeconds: 570 });
+  assert.deepEqual(stored.ai_playbook, { ...storedWhipPan, startSeconds: 485.75, endSeconds: 486.5 });
+  assert.equal(requests, 1);
+
+  assert.equal(await analyze(id, {
+    ...options, startAt: 1200,
+  }), "invalid_start");
+  assert.equal(requests, 1);
+  assert.deepEqual(await read(owner, id), stored);
+
+  assert.equal(await analyze(id, {
+    ...options, startAt: 600, generate: async () => modelResult,
+  }), "refresh_unavailable");
+  assert.deepEqual(await read(owner, id), stored);
 });
 
 test("a rejected YouTube clip uses post details without a second paid request", async () => {
@@ -482,7 +538,7 @@ test("legacy analysis remains visible during refresh and survives a failed updat
   assert.equal(await analyze(legacy, upgrade, other), "unchanged");
   assert.equal(await analyze(legacy, upgrade), "ready");
   const updated = await read(owner, legacy);
-  assert.equal(updated.ai_version, 1);
+  assert.equal(updated.ai_version, 2);
   assert.equal(updated.ai_summary, modelResult.summary);
   assert.deepEqual(updated.folders, previous.folders);
   assert.deepEqual(updated.ai_steps, []);
