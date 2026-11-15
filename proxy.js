@@ -22,4 +22,4 @@ export async function proxy(request) {
   return response;
 }
 
-export const config = { matcher: ["/references", "/sign-in"] };
+export const config = { matcher: ["/references", "/references/plan", "/sign-in"] };

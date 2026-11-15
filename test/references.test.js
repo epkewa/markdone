@@ -1,6 +1,54 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseLink, resolveLink } from "../lib/references.js";
+import { parseReferenceBatch, saveReferenceBatch } from "../lib/reference-batch.js";
+
+test("reference batches accept one link or mixed separators and preserve URL commas", () => {
+  const youtube = "https://youtu.be/uiANvR_hsZY?list=a,b";
+  const instagram = "https://www.instagram.com/p/Abc/";
+  const pinterest = "https://www.pinterest.com/pin/123456/";
+  const x = "https://x.com/NASA/status/123";
+  assert.deepEqual(parseReferenceBatch(` ${youtube} `), [{ url: youtube, link: parseLink(youtube) }]);
+  assert.deepEqual(parseReferenceBatch(`\r\n${youtube},${instagram}\t${pinterest},\n${x}\n`).map(({ url }) => url),
+    [youtube, instagram, pinterest, x]);
+  assert.deepEqual(parseReferenceBatch(" \r\n , \t"), []);
+});
+
+test("reference batches keep the first post or share variant and surface malformed entries", () => {
+  const youtube = "https://youtube.com/shorts/uiANvR_hsZY";
+  const share = "https://pin.it/Abc?tracking=1";
+  const invalid = "https://example.com/unsupported";
+  const entries = parseReferenceBatch(`${youtube}\nhttps://youtu.be/uiANvR_hsZY ${share}\nhttps://pin.it/Abc ${invalid} nope`);
+  assert.deepEqual(entries, [
+    { url: youtube, link: parseLink(youtube) },
+    { url: share, link: parseLink(share) },
+    { url: invalid, link: null },
+    { url: "nope", link: null },
+  ]);
+});
+
+test("batch processing runs one save at a time and continues after invalid entries and save errors", async () => {
+  const returnedError = "https://x.com/NASA/status/123";
+  const thrownError = "https://instagram.com/p/Abc/";
+  const success = "https://youtu.be/uiANvR_hsZY";
+  const events = [];
+  const failed = await saveReferenceBatch(parseReferenceBatch(`${returnedError} nope ${thrownError} ${success}`), async (url) => {
+    events.push(`start ${url}`);
+    await Promise.resolve();
+    events.push(`end ${url}`);
+    if (url === thrownError) throw new Error("Internal details");
+    return url === returnedError ? { error: "Choose valid folders." } : { ok: true };
+  }, (completed) => events.push(completed));
+  assert.deepEqual(events, [
+    `start ${returnedError}`, `end ${returnedError}`, 1, 2,
+    `start ${thrownError}`, `end ${thrownError}`, 3,
+    `start ${success}`, `end ${success}`, 4,
+  ]);
+  assert.deepEqual(failed.map(({ url }) => url), [returnedError, "nope", thrownError]);
+  assert.equal(failed[0].error, "Choose valid folders.");
+  assert.match(failed[1].error, /Use a link to a post/);
+  assert.match(failed[2].error, /Try again/);
+});
 
 test("YouTube forms deduplicate by video ID", () => {
   const urls = [

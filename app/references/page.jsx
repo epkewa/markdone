@@ -17,7 +17,7 @@ async function collectPages(query) {
   }
 }
 
-export default async function ReferencesPage() {
+export default async function ReferencesPage({ searchParams }) {
   if (!configured()) redirect("/sign-in");
 
   const client = await supabase();
@@ -32,5 +32,8 @@ export default async function ReferencesPage() {
       .eq("owner_id", owner).order("created_at", { ascending: false }).order("id", { ascending: false })),
   ]);
 
-  return <Library email={data.claims.email} folders={folders} references={references} analysisEnabled={analysisConfigured()} />;
+  const { reference: referenceId } = await searchParams;
+  const initialReference = references.find(({ id }) => id === referenceId);
+  return <Library email={data.claims.email} folders={folders} references={references} analysisEnabled={analysisConfigured()}
+    initialReference={initialReference} missingReference={Boolean(referenceId) && !initialReference} />;
 }

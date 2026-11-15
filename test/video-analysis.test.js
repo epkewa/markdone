@@ -444,6 +444,21 @@ test("a rejected YouTube clip uses post details without a second paid request", 
   assert.equal(requests, 1);
 });
 
+test("when Gemini abstains, credible post details still give a new reference a summary", async () => {
+  const id = await save(owner, watch("abstained01"));
+  const title = "Speed ramp with Time Remapping";
+  const description = "A Premiere Pro tutorial on changing playback speed with keyframes.";
+  assert.equal(await analyze(id, {
+    fetcher: youtube({ title, description }),
+    generate: async () => ({ sufficient: false }),
+  }), "ready");
+  const stored = await read(owner, id);
+  assert.equal(stored.title, title);
+  assert.equal(stored.ai_summary, description);
+  assert.equal(stored.ai_source, "metadata");
+  assert.equal(stored.ai_playbook, null);
+});
+
 test("legacy analysis remains visible during refresh and survives a failed update", async () => {
   const previous = await read(owner, legacy);
   assert.equal(previous.ai_version, 0);
@@ -460,6 +475,10 @@ test("legacy analysis remains visible during refresh and survives a failed updat
   assert.deepEqual(await read(owner, legacy), previous);
 
   const upgrade = { explicit: true, refreshLegacy: true };
+  assert.equal(await analyze(legacy, {
+    ...upgrade, generate: async () => ({ sufficient: false }),
+  }), "refresh_unavailable");
+  assert.deepEqual(await read(owner, legacy), previous);
   assert.equal(await analyze(legacy, upgrade, other), "unchanged");
   assert.equal(await analyze(legacy, upgrade), "ready");
   const updated = await read(owner, legacy);

@@ -54,10 +54,14 @@ function Exit({ demo }) {
     : <form action={signOut}><button type="submit" className="icon-button" aria-label="Sign out" title="Sign out"><Icon name="logout" size={18} /></button></form>;
 }
 
-export function Library({ email, folders, references, demo, analysisEnabled = false, actions = accountActions }) {
+export function Library({ email, folders, references, demo, analysisEnabled = false, actions = accountActions, initialReference, missingReference }) {
   const [folderId, setFolderId] = useState("");
-  const [dialog, setDialog] = useState(null);
-  const close = useCallback(() => setDialog(null), []);
+  const [dialog, setDialog] = useState(() => initialReference ? { type: "view", item: initialReference, direct: true } : null);
+  const direct = dialog?.direct;
+  const close = useCallback(() => {
+    setDialog(null);
+    if (direct) window.history.replaceState(null, "", "/references");
+  }, [direct]);
   const active = folders.find(({ id }) => id === folderId);
   const counts = new Map();
   for (const reference of references) {
@@ -124,6 +128,7 @@ export function Library({ email, folders, references, demo, analysisEnabled = fa
             </div>
           </div>
           <div className="workspace-actions">
+            {!demo && <Link className="button secondary" href="/references/plan"><Icon name="plan" size={17} /> Plan a video</Link>}
             {active && (
               <details className="item-actions">
                 <summary className="button secondary" aria-label="Folder options"><Icon name="more" size={20} /></summary>
@@ -136,6 +141,7 @@ export function Library({ email, folders, references, demo, analysisEnabled = fa
             <button className="button primary" onClick={() => open("add")}><Icon name="add" size={19} /> Add reference</button>
           </div>
         </header>
+        {missingReference && <p className="notice library-preview-notice" role="status">That reference is no longer available.</p>}
         {visible.length ? (
           <section aria-label="Saved references" className="reference-grid">
             {visible.map((item) => <ReferenceCard key={item.id} reference={item} folders={folders} open={open} />)}
@@ -150,10 +156,10 @@ export function Library({ email, folders, references, demo, analysisEnabled = fa
         )}
       </main>
 
-      {dialog && (
+      {dialog?.type === "add" && <AddReference action={actions.saveReference} folders={folders} activeFolder={active?.id} close={close} />}
+      {dialog && dialog.type !== "add" && (
         <Dialog close={close} viewer={dialog.type === "view"}>
           {dialog.type === "view" && <Viewer demo={Boolean(demo)} retry={actions.retryReference} analyze={analysisEnabled ? actions.analyzeReference : undefined} reference={reference} close={close} />}
-          {dialog.type === "add" && <AddReference action={actions.saveReference} folders={folders} activeFolder={active?.id} close={close} />}
           {dialog.type === "edit" && <EditFolders action={actions.editMemberships} folders={folders} reference={reference} close={close} />}
           {dialog.type === "newFolder" && <FolderForm action={actions.saveFolder} close={close} />}
           {dialog.type === "renameFolder" && <FolderForm action={actions.saveFolder} folder={dialog.item} close={close} />}

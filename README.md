@@ -12,6 +12,12 @@ For public YouTube videos and Shorts up to three minutes, Gemini samples the cli
 
 Before enabling analysis in production, save public clips showing a whip-pan, a speed ramp, and a typography effect. Check each timestamp against the clip and follow the Premiere Pro steps. Also try a misleading caption and a clip without an identifiable technique. Use the `Markdone Gemini usage` server log to record token counts and elapsed time. At the [published standard rates](https://ai.google.dev/gemini-api/docs/pricing?frmapp=yes), estimate USD as `(0.30 * inputTokens + 2.50 * (outputTokens + thoughtTokens)) / 1_000_000`. Three minutes at four frames per second and low resolution is estimated at about $0.02.
 
+## Plan a video
+
+From the signed-in library, choose **Plan a video** and describe what you're making. The planner searches the full recreation playbooks in that account, then suggests references and a shoot and edit plan. Videos with only a summary are skipped. With no good match, the assistant still gives a starter plan. Open a reference to see its saved playbook, and ask follow-up questions to refine the plan.
+
+Conversations are saved to the signed-in account. Apply the video planner migration before deploying this page. The planner uses the existing server-side `GEMINI_API_KEY`, with two text requests per successful turn and no new video analysis.
+
 ## Run locally
 
 1. Run `npm ci` with Node.js 22 or newer.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { parseLink, platforms, referenceTitle } from "../../lib/references";
+import { formatTime, parseLink, platforms, referenceTitle } from "../../lib/references";
 import { Icon } from "../components/icons";
 import { ActionForm } from "./dialogs";
 
@@ -26,10 +26,6 @@ function AnalyzeButton({ action, referenceId, label }) {
       {result?.error && <p role="alert" className="notice">{result.error}</p>}
     </form>
   );
-}
-
-function formatTime(seconds) {
-  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 }
 
 function Playbook({ summary, playbook }) {

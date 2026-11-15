@@ -82,9 +82,11 @@ export async function analyzeReference(_state, data) {
     if (!uuid.test(id)) return { error: "Reference couldn’t be found." };
     const status = await analyzeSavedVideo(client, owner, id, { explicit: true, refreshLegacy: true });
     if (status === "disabled") return { error: "Video analysis isn’t configured." };
-    if (status === "refresh_failed") {
+    if (status === "refresh_failed" || status === "refresh_unavailable") {
       revalidatePath("/references");
-      return { error: "The analysis couldn’t be updated. Try again." };
+      return { error: status === "refresh_unavailable"
+        ? "There wasn’t enough new information to update this reference. Your previous analysis is still available."
+        : "Analysis couldn’t finish. Your previous analysis is still available. Try again." };
     }
   });
 }
